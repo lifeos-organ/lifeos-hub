@@ -34,6 +34,41 @@ export function toBinanceSymbol(symbol: string): string {
   return clean;
 }
 
+export function validateAndCleanBars(bars: Bar[]): Bar[] {
+  if (!bars || bars.length === 0) return [];
+
+  // Sort chronologically ascending
+  const sorted = [...bars].sort((a, b) => a.time - b.time);
+  const clean: Bar[] = [];
+  const seenTimes = new Set<number>();
+
+  for (const bar of sorted) {
+    if (seenTimes.has(bar.time)) continue; // Deduplicate
+    if (isNaN(bar.open) || isNaN(bar.high) || isNaN(bar.low) || isNaN(bar.close) || isNaN(bar.time)) continue;
+    if (bar.open <= 0 || bar.close <= 0) continue;
+
+    // Fix minor high/low precision anomalies
+    const open = bar.open;
+    const close = bar.close;
+    const high = Math.max(bar.high, open, close);
+    const low = Math.min(bar.low, open, close);
+    const volume = Math.max(0, isNaN(bar.volume) ? 0 : bar.volume);
+
+    seenTimes.add(bar.time);
+    clean.push({
+      time: bar.time,
+      open,
+      high,
+      low,
+      close,
+      volume,
+      confirmed: bar.confirmed ?? true,
+    });
+  }
+
+  return clean;
+}
+
 export class LiveBinanceMarketDataProvider implements MarketDataProvider {
   name = 'Binance Public Stream';
   supportedSymbols = ['BTCUSD', 'ETHUSD', 'SOLUSD', 'BNBUSD', 'XRPUSD', 'ADAUSD', 'DOGEUSD'];
@@ -211,34 +246,88 @@ export class LiveBinanceMarketDataProvider implements MarketDataProvider {
     };
   }
 
-  async getHistoricalBars(symbol: string, timeframe: Timeframe, limit = 150): Promise<Bar[]> {
+  async getHistoricalBars(
+    symbol: string,
+    timeframe: Timeframe,
+    limit = 150,
+    startTime?: number,
+    endTime?: number
+  ): Promise<Bar[]> {
     const bSymbol = toBinanceSymbol(symbol);
     const interval = toBinanceInterval(timeframe);
-    const url = `https://api.binance.com/api/v3/klines?symbol=${bSymbol}&interval=${interval}&limit=${limit}`;
+    const maxChunk = 1000;
 
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) {
-        throw new Error(`Binance API response error: ${resp.status}`);
+    // If requested limit <= 1000 and no specific startTime/endTime pagination needed
+    if (limit <= maxChunk && !startTime && !endTime) {
+      const url = `https://api.binance.com/api/v3/klines?symbol=${bSymbol}&interval=${interval}&limit=${Math.min(limit, maxChunk)}`;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          throw new Error(`Binance API response error: ${resp.status}`);
+        }
+        const data = await resp.json();
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid Binance Kline format');
+        }
+        const rawBars: Bar[] = data.map((item: any) => ({
+          time: item[0],
+          open: parseFloat(item[1]),
+          high: parseFloat(item[2]),
+          low: parseFloat(item[3]),
+          close: parseFloat(item[4]),
+          volume: parseFloat(item[5]),
+          confirmed: true,
+        }));
+        return validateAndCleanBars(rawBars);
+      } catch (err: any) {
+        throw err;
       }
-      const data = await resp.json();
-      if (!Array.isArray(data)) {
-        throw new Error('Invalid Binance Kline format');
-      }
-
-      // Binance format: [0: openTime, 1: open, 2: high, 3: low, 4: close, 5: volume, ...]
-      return data.map((item: any) => ({
-        time: item[0],
-        open: parseFloat(item[1]),
-        high: parseFloat(item[2]),
-        low: parseFloat(item[3]),
-        close: parseFloat(item[4]),
-        volume: parseFloat(item[5]),
-        confirmed: true,
-      }));
-    } catch (err: any) {
-      throw err;
     }
+
+    // Chunked multi-request pagination for large historical ranges without artificial application limit
+    const allBars: Bar[] = [];
+    let currentEndTime = endTime || Date.now();
+    let remaining = limit;
+
+    while (remaining > 0) {
+      const fetchLimit = Math.min(remaining, maxChunk);
+      let url = `https://api.binance.com/api/v3/klines?symbol=${bSymbol}&interval=${interval}&limit=${fetchLimit}&endTime=${currentEndTime}`;
+      if (startTime) {
+        url += `&startTime=${startTime}`;
+      }
+
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) break;
+        const data = await resp.json();
+        if (!Array.isArray(data) || data.length === 0) break;
+
+        const chunkBars: Bar[] = data.map((item: any) => ({
+          time: item[0],
+          open: parseFloat(item[1]),
+          high: parseFloat(item[2]),
+          low: parseFloat(item[3]),
+          close: parseFloat(item[4]),
+          volume: parseFloat(item[5]),
+          confirmed: true,
+        }));
+
+        // Prepend chunk
+        allBars.unshift(...chunkBars);
+        remaining -= chunkBars.length;
+
+        // Next chunk ends before the earliest candle in this chunk
+        const earliestTime = chunkBars[0].time;
+        if (earliestTime <= (startTime || 0) || chunkBars.length < fetchLimit) {
+          break; // Reached beginning of data or start range
+        }
+        currentEndTime = earliestTime - 1;
+      } catch {
+        break;
+      }
+    }
+
+    return validateAndCleanBars(allBars);
   }
 
   async getQuote(symbol: string): Promise<Quote> {

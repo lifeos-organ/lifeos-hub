@@ -1,6 +1,7 @@
 import { ColumnarCandles, Timeframe, CacheTelemetryStats } from '../../types';
 import {
   createColumnarCandles,
+  candlesToColumnar,
   generateColumnarDataset,
   serializeColumnarToBuffer,
   deserializeColumnarFromBuffer,
@@ -177,20 +178,35 @@ class MultiLevelHistoricalCacheManager {
       // Pass-through on indexeddb error
     }
 
-    // 4. Level 3: Fetch or High-Speed Synthetic Seed Generator
+    // 4. Level 3: Fetch Real Market Data from MarketDataManager or High-Speed Seed Fallback
     this.misses++;
-    const seedPrice = symbol.includes('BTC') ? 94800 : symbol.includes('ETH') ? 3420 : symbol.includes('EUR') ? 1.085 : 2740;
-    const generated = generateColumnarDataset(count, {
-      startPrice: seedPrice,
-      startTime: Date.now() - count * 60000,
-      volatility: symbol.includes('BTC') ? 0.002 : 0.0008,
-      seed: hashString(`${symbol}:${timeframe}`),
-    });
+    let col: ColumnarCandles | null = null;
+
+    try {
+      // Dynamic import or direct call to avoid circular dependency
+      const { MarketDataManager } = await import('../marketData/MarketDataManager');
+      const realBars = await MarketDataManager.getHistoricalBars(symbol, timeframe, Math.min(count, 5000));
+      if (realBars && realBars.length > 20) {
+        col = candlesToColumnar(realBars);
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (!col) {
+      const seedPrice = symbol.includes('BTC') ? 94800 : symbol.includes('ETH') ? 3420 : symbol.includes('EUR') ? 1.085 : 2740;
+      col = generateColumnarDataset(count, {
+        startPrice: seedPrice,
+        startTime: Date.now() - count * 60000,
+        volatility: symbol.includes('BTC') ? 0.002 : 0.0008,
+        seed: hashString(`${symbol}:${timeframe}`),
+      });
+    }
 
     // Write-through to L1 and L2
-    this.putMemory(key, symbol, timeframe, generated);
+    this.putMemory(key, symbol, timeframe, col);
     try {
-      const buf = serializeColumnarToBuffer(generated);
+      const buf = serializeColumnarToBuffer(col);
       this.idbStore.set(key, buf, { symbol, timeframe, count });
     } catch {
       // Ignored
@@ -199,7 +215,7 @@ class MultiLevelHistoricalCacheManager {
     // Trigger background prefetch for adjacent timeframes
     this.triggerPrefetch(symbol, timeframe, count);
 
-    return generated;
+    return col;
   }
 
   private putMemory(key: string, symbol: string, timeframe: Timeframe, data: ColumnarCandles) {
