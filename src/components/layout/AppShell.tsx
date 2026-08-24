@@ -18,6 +18,8 @@ export function AppShell({ currentPath, onNavigate, children }: AppShellProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const isTradingView = currentPath.startsWith('/trading');
+
   return (
     <div className="min-h-screen bg-neutral-100/60 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col antialiased selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900">
       {/* PWA Offline / Update Banner */}
@@ -36,7 +38,13 @@ export function AppShell({ currentPath, onNavigate, children }: AppShellProps) {
             onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           />
 
-          <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto animate-in fade-in duration-200">
+          <main
+            className={`flex-1 animate-in fade-in duration-200 ${
+              isTradingView
+                ? 'p-1.5 sm:p-2.5 w-full flex flex-col min-h-0'
+                : 'p-4 lg:p-8 max-w-7xl w-full mx-auto'
+            }`}
+          >
             {children}
           </main>
         </div>

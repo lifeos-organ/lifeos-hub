@@ -51,6 +51,7 @@ interface TradingChartCanvasProps {
   onUpdateDrawings: (drawings: ChartDrawing[]) => void;
   isMagnetEnabled: boolean;
   replayIndex?: number; // if set, only show candles up to this index
+  onQuickOrder?: (direction: 'long' | 'short') => void;
 }
 
 const SUPPORTED_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '30m', '1H', '4H', '1D', '1W'];
@@ -70,6 +71,7 @@ export const TradingChartCanvas: React.FC<TradingChartCanvasProps> = ({
   onUpdateDrawings,
   isMagnetEnabled,
   replayIndex,
+  onQuickOrder,
 }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -784,12 +786,20 @@ export const TradingChartCanvas: React.FC<TradingChartCanvasProps> = ({
         ctx.fillStyle = '#38bdf8';
         ctx.font = 'bold 9px monospace';
         ctx.fillText(`KEY LEVEL $${p1.price.toFixed(symbol.decimals)}`, 10, y1 - 4);
-      } else if (d.type === 'trendline') {
+      } else if (d.type === 'trendline' || d.type === 'ray') {
         ctx.strokeStyle = d.color || '#38bdf8';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
+        if (d.type === 'ray') {
+          // Infinite ray to right edge
+          const slope = (y2 - y1) / (x2 - x1 || 0.001);
+          const extendedX = width - 70;
+          const extendedY = y1 + slope * (extendedX - x1);
+          ctx.lineTo(extendedX, extendedY);
+        } else {
+          ctx.lineTo(x2, y2);
+        }
         ctx.stroke();
 
         ctx.fillStyle = '#ffffff';
@@ -797,6 +807,69 @@ export const TradingChartCanvas: React.FC<TradingChartCanvasProps> = ({
         ctx.arc(x1, y1, 4, 0, Math.PI * 2);
         ctx.arc(x2, y2, 4, 0, Math.PI * 2);
         ctx.fill();
+      } else if (d.type === 'vertical_line') {
+        ctx.strokeStyle = d.color || '#e2e8f0';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x1, 0);
+        ctx.lineTo(x1, mainHeight);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (d.type === 'parallel_channel') {
+        ctx.strokeStyle = d.color || '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        // Parallel channel offset
+        const channelOffset = 30;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1 + channelOffset);
+        ctx.lineTo(x2, y2 + channelOffset);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineTo(x2, y2 + channelOffset);
+        ctx.lineTo(x1, y1 + channelOffset);
+        ctx.closePath();
+        ctx.fill();
+      } else if (d.type === 'circle') {
+        const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)) || 25;
+        ctx.strokeStyle = d.color || '#f59e0b';
+        ctx.lineWidth = 1.5;
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.1)';
+        ctx.beginPath();
+        ctx.arc(x1, y1, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else if (d.type === 'text') {
+        ctx.fillStyle = d.color || '#ffffff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(d.label || 'Note', x1 + 4, y1 - 4);
+      } else if (d.type === 'price_range') {
+        const leftX = Math.min(x1, x2);
+        const topY = Math.min(y1, y2);
+        const rectW = Math.abs(x2 - x1) || 40;
+        const rectH = Math.abs(y2 - y1) || 20;
+        const priceDiff = Math.abs(p2.price - p1.price);
+        const pctDiff = ((priceDiff / (p1.price || 1)) * 100).toFixed(2);
+        const barDiff = Math.abs(idx2 - idx1);
+
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+        ctx.fillRect(leftX, topY, rectW, rectH);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(leftX, topY, rectW, rectH);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 9px monospace';
+        ctx.fillText(`Δ $${priceDiff.toFixed(symbol.decimals)} (${pctDiff}%) | ${barDiff} bars`, leftX + 4, topY + 12);
       } else if (d.type === 'rectangle') {
         const leftX = Math.min(x1, x2);
         const topY = Math.min(y1, y2);
@@ -1207,6 +1280,60 @@ export const TradingChartCanvas: React.FC<TradingChartCanvasProps> = ({
         ref={canvasContainerRef}
         className="relative flex-1 w-full min-h-[460px] cursor-crosshair bg-white dark:bg-slate-950 overflow-hidden"
       >
+        {/* Floating Top-Left Chart Info HUD & Real-time Quote Box */}
+        <div className="absolute top-2.5 left-3 z-10 flex flex-wrap items-center gap-3 pointer-events-none select-none">
+          {/* Symbol Title & Timeframe */}
+          <div className="flex items-center gap-2 bg-white/85 dark:bg-slate-950/85 backdrop-blur-md px-2.5 py-1 rounded-xl border border-neutral-200/80 dark:border-slate-800 shadow-sm pointer-events-auto">
+            <div className="flex items-center gap-1.5 font-mono">
+              <span className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-slate-100">
+                {symbol.symbol}
+              </span>
+              <span className="text-[10px] text-neutral-500 dark:text-slate-400 font-normal truncate max-w-[120px] sm:max-w-[180px]">
+                {symbol.name}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold">
+                {timeframe}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-slate-900 text-neutral-500 dark:text-slate-400 text-[9px]">
+                {symbol.category}
+              </span>
+            </div>
+          </div>
+
+          {/* Quick Real BID / ASK & Instant Order Placement Action Box */}
+          {symbol && (
+            <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md p-1 rounded-xl border border-neutral-200/90 dark:border-slate-800 shadow-md pointer-events-auto">
+              <button
+                onClick={() => onQuickOrder?.('short')}
+                title="Instant Market Sell (Bid Price)"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-colors cursor-pointer text-xs font-mono font-bold"
+              >
+                <span>SELL</span>
+                <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                  ${(symbol.currentPrice - symbol.pipSize * 2).toFixed(symbol.decimals)}
+                </span>
+              </button>
+
+              <div className="px-1 text-[9px] font-mono text-neutral-400 dark:text-slate-500 text-center">
+                <span>{(symbol.pipSize * 4).toFixed(symbol.decimals)}</span>
+                <div className="text-[7px] uppercase tracking-tighter">Spread</div>
+              </div>
+
+              <button
+                onClick={() => onQuickOrder?.('long')}
+                title="Instant Market Buy (Ask Price)"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 transition-colors cursor-pointer text-xs font-mono font-bold"
+              >
+                <span>BUY</span>
+                <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  ${(symbol.currentPrice + symbol.pipSize * 2).toFixed(symbol.decimals)}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* HTML5 Canvas Surface */}
         <canvas
           ref={canvasRef}
           onMouseDown={handleMouseDown}
@@ -1219,10 +1346,66 @@ export const TradingChartCanvas: React.FC<TradingChartCanvasProps> = ({
 
         {/* Drawing Status banner if user is in a 2-point drawing mode */}
         {currentDraftPoints.length > 0 && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-emerald-500 text-slate-950 text-xs font-mono font-bold shadow-xl animate-pulse pointer-events-none z-10">
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-emerald-500 text-slate-950 text-xs font-mono font-bold shadow-xl animate-pulse pointer-events-none z-10">
             Click second anchor point to complete {activeDrawingTool.replace('_', ' ')}
           </div>
         )}
+      </div>
+
+      {/* Bottom Range Bar: 1D, 5D, 1M, 3M, 6M, YTD, 1Y, 5Y, ALL, UTC/Local Clock, Auto/Log */}
+      <div className="px-3 py-1.5 bg-neutral-100/95 dark:bg-slate-950/95 border-t border-neutral-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono select-none">
+        {/* Left: Time Range Presets */}
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {[
+            { label: '1D', count: 24 },
+            { label: '5D', count: 60 },
+            { label: '1M', count: 120 },
+            { label: '3M', count: 180 },
+            { label: '6M', count: 220 },
+            { label: 'YTD', count: 240 },
+            { label: '1Y', count: 250 },
+            { label: '5Y', count: 250 },
+            { label: 'ALL', count: 999 },
+          ].map((range) => (
+            <button
+              key={range.label}
+              onClick={() => {
+                setRightOffset(0);
+                setVisibleCount(Math.min(candles.length, range.count));
+              }}
+              className="px-2 py-0.5 rounded text-neutral-600 dark:text-slate-400 hover:text-neutral-900 dark:hover:text-slate-100 hover:bg-neutral-200 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+            >
+              {range.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Right: Scale & Clock Info */}
+        <div className="flex items-center gap-3 text-neutral-500 dark:text-slate-400">
+          <div className="flex items-center gap-1.5 border-r border-neutral-300 dark:border-slate-800 pr-3">
+            <button
+              onClick={() => {
+                setRightOffset(0);
+                setVisibleCount(65);
+              }}
+              className="px-1.5 py-0.5 rounded bg-neutral-200/60 dark:bg-slate-900 hover:text-emerald-500 text-[10px] uppercase cursor-pointer"
+              title="Auto Scale Chart"
+            >
+              auto
+            </button>
+            <span className="text-[10px] text-neutral-400 dark:text-slate-500 uppercase">
+              log
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[10px]">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">LIVE</span>
+            <span className="hidden sm:inline text-neutral-400 dark:text-slate-500">
+              {new Date().toLocaleTimeString('en-US', { timeZone: 'UTC', hour12: false })} UTC
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -641,9 +641,15 @@ export type ChartType = 'candlestick' | 'heikin_ashi' | 'line';
 export type DrawingToolType =
   | 'cursor'
   | 'trendline'
+  | 'ray'
   | 'horizontal_line'
+  | 'vertical_line'
+  | 'parallel_channel'
   | 'fibonacci'
   | 'rectangle'
+  | 'circle'
+  | 'text'
+  | 'price_range'
   | 'long_position'
   | 'short_position';
 

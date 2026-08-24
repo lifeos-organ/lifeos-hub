@@ -401,7 +401,7 @@ export const TradingMainView: React.FC = () => {
   }));
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="w-full flex-1 flex flex-col min-h-0 space-y-2.5 pb-6">
       {/* Toast notification banner */}
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 px-4 py-2.5 rounded-2xl bg-emerald-500 text-slate-950 text-xs font-mono font-bold shadow-2xl flex items-center gap-2 animate-bounce">
@@ -431,11 +431,12 @@ export const TradingMainView: React.FC = () => {
 
       {/* Main Content Body */}
       {activeTab === 'terminal' && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-          {/* Left / Center 3 Cols: Drawing Bar + Chart Canvas / MultiChart + Open Positions */}
-          <div className="lg:col-span-3 space-y-6">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
-              {/* Left Floating Drawing Toolbar */}
+        <div className="flex-1 flex flex-col gap-2.5 min-h-0">
+          {/* Central Workspace: Left Drawing Bar + Center Chart + Right Watchlist Sidebar */}
+          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-2.5 items-stretch min-h-[560px]">
+            {/* Center Area (Col 1-9 on XL): Left Drawing Toolbar + Main Chart Canvas */}
+            <div className="xl:col-span-9 flex flex-col sm:flex-row items-stretch sm:items-start gap-2 min-h-0">
+              {/* Left Pinned Drawing Toolbar */}
               <DrawingToolbar
                 activeTool={activeDrawingTool}
                 onSelectTool={setActiveDrawingTool}
@@ -446,23 +447,28 @@ export const TradingMainView: React.FC = () => {
                 onTakeScreenshot={() => showToast('Chart snapshot copied to clipboard')}
               />
 
-              {/* Responsive Chart Canvas or MultiChart Layout */}
-              <div className="flex-1 min-h-[520px] flex flex-col">
-                {/* Multi-Chart Mode Toggle Button */}
-                <div className="flex items-center justify-between pb-2">
-                  <span className="text-[11px] font-mono font-bold text-neutral-400">
-                    {isMultiChartEnabled ? 'MULTI-CHART SYNCHRONIZED WORKSPACE' : 'SINGLE CHART WORKSPACE'}
-                  </span>
+              {/* Main Interactive Chart Canvas or Multi-Chart Workspace */}
+              <div className="flex-1 flex flex-col h-full min-h-[520px]">
+                {/* Multi-Chart Mode Toggle Bar */}
+                <div className="flex items-center justify-between pb-1.5 px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                      {isMultiChartEnabled ? 'Multi-Chart Split Grid' : 'Standard Chart Terminal'}
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                      High-Precision Canvas
+                    </span>
+                  </div>
                   <button
                     onClick={() => setIsMultiChartEnabled(!isMultiChartEnabled)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                       isMultiChartEnabled
                         ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30'
                         : 'bg-neutral-100 dark:bg-slate-900 text-neutral-600 dark:text-slate-400 hover:text-neutral-900 dark:hover:text-slate-200'
                     }`}
                   >
-                    {isMultiChartEnabled ? <Square className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
-                    <span>{isMultiChartEnabled ? 'Standard View' : 'Multi-Chart Split'}</span>
+                    {isMultiChartEnabled ? <Square className="w-3 h-3" /> : <LayoutGrid className="w-3 h-3" />}
+                    <span>{isMultiChartEnabled ? 'Single View' : 'Multi-Chart Split'}</span>
                   </button>
                 </div>
 
@@ -494,25 +500,31 @@ export const TradingMainView: React.FC = () => {
                     drawings={drawings}
                     onUpdateDrawings={handleUpdateDrawings}
                     isMagnetEnabled={isMagnetEnabled}
+                    onQuickOrder={(dir) => {
+                      const posSize = currentSymbol.category === 'Crypto' ? 0.1 : 1;
+                      handleExecuteQuickOrder(dir, posSize);
+                    }}
                   />
                 )}
               </div>
             </div>
 
-            {/* Open Positions & Executions */}
+            {/* Right Sidebar (Col 10-12 on XL): Market Watchlist */}
+            <div className="xl:col-span-3 flex flex-col h-full min-h-[480px]">
+              <TradingWatchlist
+                symbols={symbols}
+                currentSymbol={currentSymbol}
+                onSelectSymbol={setCurrentSymbol}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Dock: Open Positions & Order History */}
+          <div className="w-full">
             <OpenPositionsTable
               orders={mappedOrders}
               symbols={symbols}
               onCloseOrder={handleClosePosition}
-            />
-          </div>
-
-          {/* Right 1 Col: Market Watchlist & Quick Execution */}
-          <div className="lg:col-span-1 space-y-6">
-            <TradingWatchlist
-              symbols={symbols}
-              currentSymbol={currentSymbol}
-              onSelectSymbol={setCurrentSymbol}
             />
           </div>
         </div>
