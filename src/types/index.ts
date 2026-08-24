@@ -728,15 +728,62 @@ export interface IndicatorConfig {
   ema21: boolean;
   ema50: boolean;
   ema200: boolean;
+  sma?: boolean;
+  wma?: boolean;
   bollingerBands: boolean;
   vwap: boolean;
   rsi: boolean;
   macd: boolean;
   volume: boolean;
+  atr?: boolean;
+  adx?: boolean;
+  stochastic?: boolean;
+  cci?: boolean;
+  williamsR?: boolean;
+  roc?: boolean;
+  momentum?: boolean;
+  obv?: boolean;
   marketStructure?: boolean;
   orderBlocks?: boolean;
   fairValueGaps?: boolean;
   liquidityLevels?: boolean;
+}
+
+export interface TradingAlert {
+  id: string;
+  symbol: string;
+  type: 'price_above' | 'price_below' | 'rsi_overbought' | 'rsi_oversold' | 'ema_cross';
+  targetValue: number;
+  conditionDescription: string;
+  createdAt: number;
+  triggered: boolean;
+  triggeredAt?: number;
+  active: boolean;
+  recurring: boolean;
+}
+
+export interface EconomicEvent {
+  id: string;
+  title: string;
+  currency: string;
+  country: string;
+  impact: 'HIGH' | 'MEDIUM' | 'LOW';
+  time: string;
+  date: string;
+  actual?: string;
+  forecast?: string;
+  previous?: string;
+}
+
+export interface MarketNewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  timestamp: string;
+  url?: string;
+  symbols: string[];
+  sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
 }
 
 export type OrderType = 'market' | 'limit';
@@ -914,6 +961,143 @@ export interface ActiveOrder {
   rMultiple?: number;
   notes?: string;
   strategy?: string;
+}
+
+// -------------------------------------------------------------
+// PERFORMANCE-FIRST ARCHITECTURE TYPES: COLUMNAR DATA & QUANT BACKTESTING
+// -------------------------------------------------------------
+
+export interface ColumnarCandles {
+  timestamps: Float64Array;
+  opens: Float64Array;
+  highs: Float64Array;
+  lows: Float64Array;
+  closes: Float64Array;
+  volumes: Float64Array;
+  count: number;
+}
+
+export type BacktestStrategyType =
+  | 'ema_crossover'
+  | 'rsi_mean_reversion'
+  | 'macd_momentum'
+  | 'bollinger_breakout'
+  | 'vwap_reversion'
+  | 'dual_ma_atr'
+  | 'multi_confluence';
+
+export interface BacktestParams {
+  strategy: BacktestStrategyType;
+  symbol: string;
+  timeframe: Timeframe;
+  initialCapital: number;
+  commissionPercent: number;
+  slippagePips: number;
+  positionSizePercent: number;
+  stopLossAtrMult?: number;
+  takeProfitAtrMult?: number;
+  customParams: Record<string, number>;
+}
+
+export interface BacktestTrade {
+  id: string;
+  entryTime: number;
+  exitTime: number;
+  symbol: string;
+  side: 'LONG' | 'SHORT';
+  entryPrice: number;
+  exitPrice: number;
+  quantity: number;
+  pnl: number;
+  pnlPercent: number;
+  fees: number;
+  exitReason: 'TAKE_PROFIT' | 'STOP_LOSS' | 'SIGNAL_EXIT' | 'END_OF_DATA';
+  durationBars: number;
+}
+
+export interface BacktestEquityPoint {
+  time: number;
+  equity: number;
+  drawdown: number;
+  drawdownPercent: number;
+}
+
+export interface BacktestResult {
+  id: string;
+  params: BacktestParams;
+  totalCandles: number;
+  executionTimeMs: number;
+  candlesPerSecond: number;
+  initialCapital: number;
+  finalCapital: number;
+  totalReturn: number;
+  totalReturnPercent: number;
+  cagrPercent: number;
+  sharpeRatio: number;
+  sortinoRatio: number;
+  calmarRatio: number;
+  maxDrawdown: number;
+  maxDrawdownPercent: number;
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRate: number;
+  profitFactor: number;
+  avgTradePnl: number;
+  avgWin: number;
+  avgLoss: number;
+  winLossRatio: number;
+  expectancy: number;
+  trades: BacktestTrade[];
+  equityCurve: BacktestEquityPoint[];
+}
+
+export interface BacktestProgress {
+  jobId: string;
+  status: 'idle' | 'running' | 'completed' | 'cancelled' | 'error';
+  progressPercent: number;
+  currentTimestamp: number;
+  processedCandles: number;
+  totalCandles: number;
+  processedTrades: number;
+  elapsedMs: number;
+  estimatedRemainingMs: number;
+  candlesPerSecond: number;
+  errorMessage?: string;
+}
+
+export interface GridOptimizationItem {
+  id: string;
+  params: Record<string, number>;
+  totalReturnPercent: number;
+  sharpeRatio: number;
+  winRate: number;
+  maxDrawdownPercent: number;
+  totalTrades: number;
+  profitFactor: number;
+  executionTimeMs: number;
+}
+
+export interface BenchmarkMetric {
+  id: string;
+  name: string;
+  category: 'dataset_gen' | 'timeframe_agg' | 'vector_indicators' | 'backtest_simulation' | 'lod_downsample';
+  candleCount: number;
+  durationMs: number;
+  throughputCandlesSec: number;
+  memoryMb?: number;
+  status: 'passed' | 'running' | 'idle';
+  timestamp: number;
+}
+
+export interface CacheTelemetryStats {
+  l1MemoryItems: number;
+  l1MemoryBytes: number;
+  l2IndexedDbItems: number;
+  l2IndexedDbBytes: number;
+  cacheHits: number;
+  cacheMisses: number;
+  hitRatePercent: number;
 }
 
 export type TradingSession = 'Asia' | 'London' | 'New York AM' | 'New York PM';

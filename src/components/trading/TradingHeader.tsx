@@ -12,19 +12,30 @@ import {
   ShieldAlert,
   Wifi,
   Sparkles,
+  Cpu,
+  Zap,
+  Bell,
+  Keyboard,
+  Filter,
+  Globe,
 } from 'lucide-react';
+
+export type TradingTabType = 'terminal' | 'screener' | 'overview' | 'replay' | 'backtester' | 'journal' | 'calculator' | 'ai_coach' | 'performance';
 
 interface TradingHeaderProps {
   currentSymbol: MarketSymbol;
   symbols: MarketSymbol[];
   onSelectSymbol: (symbol: MarketSymbol) => void;
-  activeTab: 'terminal' | 'replay' | 'journal' | 'calculator' | 'ai_coach';
-  onSelectTab: (tab: 'terminal' | 'replay' | 'journal' | 'calculator' | 'ai_coach') => void;
+  activeTab: TradingTabType;
+  onSelectTab: (tab: TradingTabType) => void;
   account: BrokerAccount;
   marketStatus: MarketStatus;
   onSelectMode: (mode: 'PAPER' | 'LIVE' | 'DEMO') => void;
   onOpenCalculator: () => void;
   onResetPaperAccount?: () => void;
+  onOpenAlerts?: () => void;
+  activeAlertsCount?: number;
+  onOpenShortcuts?: () => void;
 }
 
 export const TradingHeader: React.FC<TradingHeaderProps> = ({
@@ -37,6 +48,9 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
   marketStatus,
   onSelectMode,
   onOpenCalculator,
+  onOpenAlerts,
+  activeAlertsCount = 0,
+  onOpenShortcuts,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -282,6 +296,31 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
             </div>
           </div>
 
+          {onOpenAlerts && (
+            <button
+              onClick={onOpenAlerts}
+              className="relative p-2.5 rounded-2xl bg-neutral-50 hover:bg-neutral-100 dark:bg-slate-950 dark:hover:bg-slate-800 border border-neutral-200 dark:border-slate-800 text-neutral-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer shadow-2xs"
+              title="Price & Technical Indicator Alerts Manager"
+            >
+              <Bell className="w-4 h-4" />
+              {activeAlertsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white shadow-xs">
+                  {activeAlertsCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {onOpenShortcuts && (
+            <button
+              onClick={onOpenShortcuts}
+              className="p-2.5 rounded-2xl bg-neutral-50 hover:bg-neutral-100 dark:bg-slate-950 dark:hover:bg-slate-800 border border-neutral-200 dark:border-slate-800 text-neutral-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer shadow-2xs"
+              title="Terminal Keyboard Shortcuts (Pro Hotkeys)"
+            >
+              <Keyboard className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             onClick={onOpenCalculator}
             className="p-2.5 rounded-2xl bg-neutral-50 hover:bg-neutral-100 dark:bg-slate-950 dark:hover:bg-slate-800 border border-neutral-200 dark:border-slate-800 text-neutral-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer shadow-2xs"
@@ -307,6 +346,30 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
         </button>
 
         <button
+          onClick={() => onSelectTab('screener')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            activeTab === 'screener'
+              ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 shadow-xs'
+              : 'text-neutral-600 dark:text-slate-400 hover:text-neutral-900 dark:hover:text-slate-200 hover:bg-neutral-100 dark:hover:bg-slate-950/60'
+          }`}
+        >
+          <Filter className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+          <span>Quant Screener</span>
+        </button>
+
+        <button
+          onClick={() => onSelectTab('overview')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            activeTab === 'overview'
+              ? 'bg-sky-500/20 text-sky-800 dark:text-sky-300 border border-sky-500/30 shadow-xs'
+              : 'text-neutral-600 dark:text-slate-400 hover:text-neutral-900 dark:hover:text-slate-200 hover:bg-neutral-100 dark:hover:bg-slate-950/60'
+          }`}
+        >
+          <Globe className="w-4 h-4 text-sky-500 dark:text-sky-400" />
+          <span>Macro & News</span>
+        </button>
+
+        <button
           onClick={() => onSelectTab('replay')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeTab === 'replay'
@@ -315,7 +378,31 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
           }`}
         >
           <Clock className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
-          <span>Bar-by-Bar Replay Engine</span>
+          <span>Bar-by-Bar Replay</span>
+        </button>
+
+        <button
+          onClick={() => onSelectTab('backtester')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            activeTab === 'backtester'
+              ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 shadow-xs'
+              : 'text-neutral-600 dark:text-slate-400 hover:text-neutral-900 dark:hover:text-slate-200 hover:bg-neutral-100 dark:hover:bg-slate-950/60'
+          }`}
+        >
+          <Cpu className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+          <span>Quant Backtester</span>
+        </button>
+
+        <button
+          onClick={() => onSelectTab('performance')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            activeTab === 'performance'
+              ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 shadow-xs'
+              : 'text-neutral-600 dark:text-slate-400 hover:text-neutral-900 dark:hover:text-slate-200 hover:bg-neutral-100 dark:hover:bg-slate-950/60'
+          }`}
+        >
+          <Zap className="w-4 h-4 text-amber-500" />
+          <span>Performance & Engine</span>
         </button>
 
         <button

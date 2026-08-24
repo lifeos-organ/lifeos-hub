@@ -15,12 +15,13 @@ import {
   NewBrokerOrder,
   MarketStatus,
   Quote,
+  TradingAlert,
 } from '../../types';
 import { INITIAL_SYMBOLS } from '../../lib/tradingData';
 import { Storage } from '../../lib/storage';
 import { MarketDataManager } from '../../lib/marketData/MarketDataManager';
 import { BrokerManager } from '../../lib/broker/BrokerManager';
-import { TradingHeader } from './TradingHeader';
+import { TradingHeader, TradingTabType } from './TradingHeader';
 import { TradingWatchlist } from './TradingWatchlist';
 import { TradingChartCanvas } from './TradingChartCanvas';
 import { DrawingToolbar } from './DrawingToolbar';
@@ -31,13 +32,20 @@ import { PositionCalculatorModal } from './PositionCalculatorModal';
 import { TradeJournalView } from './TradeJournalView';
 import { AITradingCoachView } from './AITradingCoachView';
 import { LiveOrderConfirmationModal } from './LiveOrderConfirmationModal';
-import { Sparkles } from 'lucide-react';
+import { BacktesterView } from './BacktesterView';
+import { PerformanceMonitorView } from './PerformanceMonitorView';
+import { AlertsManagerModal } from './AlertsManagerModal';
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import { MarketScreenerView } from './MarketScreenerView';
+import { MarketOverviewView } from './MarketOverviewView';
+import { MultiChartLayout } from './MultiChartLayout';
+import { Sparkles, LayoutGrid, Square, BellRing } from 'lucide-react';
 
 export const TradingMainView: React.FC = () => {
   // 1. Initial State
   const [symbols, setSymbols] = useState<MarketSymbol[]>(() => Storage.getTradingSymbols());
   const [currentSymbol, setCurrentSymbol] = useState<MarketSymbol>(() => symbols[0] || INITIAL_SYMBOLS[0]);
-  const [activeTab, setActiveTab] = useState<'terminal' | 'replay' | 'journal' | 'calculator' | 'ai_coach'>('terminal');
+  const [activeTab, setActiveTab] = useState<TradingTabType>('terminal');
 
   // Chart configuration
   const [timeframe, setTimeframe] = useState<Timeframe>('15m');
@@ -55,6 +63,21 @@ export const TradingMainView: React.FC = () => {
   });
   const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
   const [isCalculatorModalOpen, setIsCalculatorModalOpen] = useState(false);
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [isMultiChartEnabled, setIsMultiChartEnabled] = useState(false);
+
+  // Alerts state
+  const [alerts, setAlerts] = useState<TradingAlert[]>(() => Storage.getTradingAlerts());
+  const alertsRef = useRef(alerts);
+  useEffect(() => {
+    alertsRef.current = alerts;
+  }, [alerts]);
+
+  const reloadAlerts = useCallback(() => {
+    const updated = Storage.getTradingAlerts();
+    setAlerts(updated);
+  }, []);
 
   // Drawing tools
   const [activeDrawingTool, setActiveDrawingTool] = useState<DrawingToolType>('cursor');
@@ -100,6 +123,55 @@ export const TradingMainView: React.FC = () => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
+
+  // Keyboard Shortcuts Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept when typing in inputs/textareas
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+        return;
+      }
+
+      if (e.code === 'Space' && activeTab === 'replay') {
+        e.preventDefault();
+        setIsReplayPlaying((prev) => !prev);
+      } else if (e.altKey && e.code === 'KeyT') {
+        e.preventDefault();
+        setActiveDrawingTool('trendline');
+        showToast('Tool: Trendline');
+      } else if (e.altKey && e.code === 'KeyH') {
+        e.preventDefault();
+        setActiveDrawingTool('horizontal');
+        showToast('Tool: Horizontal Ray');
+      } else if (e.altKey && e.code === 'KeyF') {
+        e.preventDefault();
+        setActiveDrawingTool('fibonacci');
+        showToast('Tool: Fibonacci Retracement');
+      } else if (e.altKey && e.code === 'KeyR') {
+        e.preventDefault();
+        setActiveDrawingTool('rectangle');
+        showToast('Tool: Rectangle Zone');
+      } else if (e.altKey && e.code === 'KeyI') {
+        e.preventDefault();
+        setIsIndicatorsModalOpen(true);
+      } else if (e.altKey && e.code === 'KeyA') {
+        e.preventDefault();
+        setIsAlertsModalOpen(true);
+      } else if (e.altKey && e.code === 'KeyP') {
+        e.preventDefault();
+        setIsCalculatorModalOpen(true);
+      } else if (e.altKey && e.code === 'KeyM') {
+        e.preventDefault();
+        setIsMultiChartEnabled((prev) => !prev);
+      } else if (e.key === 'Escape') {
+        setActiveDrawingTool('cursor');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, showToast]);
 
   // Connect Market Data & Broker on mount
   useEffect(() => {
@@ -198,6 +270,28 @@ export const TradingMainView: React.FC = () => {
           };
           return [...prev.slice(0, -1), updatedLast];
         });
+
+        // Check active alerts for this symbol
+        const activeAlerts = alertsRef.current.filter(
+          (a) => a.active && !a.triggered && a.symbol === quote.symbol
+        );
+        for (const al of activeAlerts) {
+          let isTriggered = false;
+          if (al.type === 'price_above' && quote.price >= al.targetValue) {
+            isTriggered = true;
+          } else if (al.type === 'price_below' && quote.price <= al.targetValue) {
+            isTriggered = true;
+          }
+          if (isTriggered) {
+            Storage.updateTradingAlert(al.id, {
+              triggered: true,
+              triggeredAt: Date.now(),
+              active: al.recurring,
+            });
+            reloadAlerts();
+            showToast(`🔔 ALERT: ${al.symbol} reached target price $${al.targetValue}`);
+          }
+        }
       }
 
       // Update positions unrealized PnL in broker
@@ -330,12 +424,15 @@ export const TradingMainView: React.FC = () => {
           BrokerManager.setMode(mode === 'LIVE' ? 'LIVE' : 'PAPER');
         }}
         onOpenCalculator={() => setIsCalculatorModalOpen(true)}
+        onOpenAlerts={() => setIsAlertsModalOpen(true)}
+        activeAlertsCount={alerts.filter((a) => a.active && !a.triggered).length}
+        onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
       />
 
       {/* Main Content Body */}
       {activeTab === 'terminal' && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-          {/* Left / Center 3 Cols: Drawing Bar + Chart Canvas + Open Positions */}
+          {/* Left / Center 3 Cols: Drawing Bar + Chart Canvas / MultiChart + Open Positions */}
           <div className="lg:col-span-3 space-y-6">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
               {/* Left Floating Drawing Toolbar */}
@@ -349,22 +446,56 @@ export const TradingMainView: React.FC = () => {
                 onTakeScreenshot={() => showToast('Chart snapshot copied to clipboard')}
               />
 
-              {/* Responsive Chart Canvas */}
-              <div className="flex-1 min-h-[500px]">
-                <TradingChartCanvas
-                  symbol={currentSymbol}
-                  rawCandles={candles}
-                  timeframe={timeframe}
-                  onChangeTimeframe={setTimeframe}
-                  chartType={chartType}
-                  onChangeChartType={setChartType}
-                  indicators={indicators}
-                  onOpenIndicatorsModal={() => setIsIndicatorsModalOpen(true)}
-                  activeDrawingTool={activeDrawingTool}
-                  drawings={drawings}
-                  onUpdateDrawings={handleUpdateDrawings}
-                  isMagnetEnabled={isMagnetEnabled}
-                />
+              {/* Responsive Chart Canvas or MultiChart Layout */}
+              <div className="flex-1 min-h-[520px] flex flex-col">
+                {/* Multi-Chart Mode Toggle Button */}
+                <div className="flex items-center justify-between pb-2">
+                  <span className="text-[11px] font-mono font-bold text-neutral-400">
+                    {isMultiChartEnabled ? 'MULTI-CHART SYNCHRONIZED WORKSPACE' : 'SINGLE CHART WORKSPACE'}
+                  </span>
+                  <button
+                    onClick={() => setIsMultiChartEnabled(!isMultiChartEnabled)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      isMultiChartEnabled
+                        ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30'
+                        : 'bg-neutral-100 dark:bg-slate-900 text-neutral-600 dark:text-slate-400 hover:text-neutral-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    {isMultiChartEnabled ? <Square className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
+                    <span>{isMultiChartEnabled ? 'Standard View' : 'Multi-Chart Split'}</span>
+                  </button>
+                </div>
+
+                {isMultiChartEnabled ? (
+                  <MultiChartLayout
+                    symbols={symbols}
+                    primarySymbol={currentSymbol}
+                    primaryCandles={candles}
+                    primaryTimeframe={timeframe}
+                    primaryChartType={chartType}
+                    indicators={indicators}
+                    activeDrawingTool={activeDrawingTool}
+                    drawings={drawings}
+                    onUpdateDrawings={handleUpdateDrawings}
+                    isMagnetEnabled={isMagnetEnabled}
+                    onOpenIndicatorsModal={() => setIsIndicatorsModalOpen(true)}
+                  />
+                ) : (
+                  <TradingChartCanvas
+                    symbol={currentSymbol}
+                    rawCandles={candles}
+                    timeframe={timeframe}
+                    onChangeTimeframe={setTimeframe}
+                    chartType={chartType}
+                    onChangeChartType={setChartType}
+                    indicators={indicators}
+                    onOpenIndicatorsModal={() => setIsIndicatorsModalOpen(true)}
+                    activeDrawingTool={activeDrawingTool}
+                    drawings={drawings}
+                    onUpdateDrawings={handleUpdateDrawings}
+                    isMagnetEnabled={isMagnetEnabled}
+                  />
+                )}
               </div>
             </div>
 
@@ -385,6 +516,28 @@ export const TradingMainView: React.FC = () => {
             />
           </div>
         </div>
+      )}
+
+      {/* Quantitative Screener Mode */}
+      {activeTab === 'screener' && (
+        <MarketScreenerView
+          symbols={symbols}
+          onSelectSymbol={(sym) => {
+            setCurrentSymbol(sym);
+            setActiveTab('terminal');
+          }}
+        />
+      )}
+
+      {/* Macro & Market Overview Mode */}
+      {activeTab === 'overview' && (
+        <MarketOverviewView
+          symbols={symbols}
+          onSelectSymbol={(sym) => {
+            setCurrentSymbol(sym);
+            setActiveTab('terminal');
+          }}
+        />
       )}
 
       {/* Historical Replay Mode */}
@@ -436,6 +589,19 @@ export const TradingMainView: React.FC = () => {
             currentCandle={candles[replayIndex]}
           />
         </div>
+      )}
+
+      {/* Quant Backtester Mode */}
+      {activeTab === 'backtester' && (
+        <BacktesterView
+          currentSymbol={currentSymbol}
+          symbols={symbols}
+        />
+      )}
+
+      {/* Performance & Engine Monitor Mode */}
+      {activeTab === 'performance' && (
+        <PerformanceMonitorView />
       )}
 
       {/* Trade Journal & Analytics Mode */}
@@ -517,6 +683,22 @@ export const TradingMainView: React.FC = () => {
           positions={positions}
         />
       )}
+
+      {/* Real-time Alerts Manager Modal */}
+      <AlertsManagerModal
+        isOpen={isAlertsModalOpen}
+        onClose={() => setIsAlertsModalOpen(false)}
+        currentSymbol={currentSymbol}
+        symbols={symbols}
+        alerts={alerts}
+        onAlertsChanged={reloadAlerts}
+      />
+
+      {/* Institutional Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+      />
     </div>
   );
 };

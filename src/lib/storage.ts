@@ -30,6 +30,7 @@ import {
   ActiveOrder,
   TradingAccount,
   ChartDrawing,
+  TradingAlert,
   AIChatMessage,
   AICoachSettings,
   AIScheduleAuditResult,
@@ -130,6 +131,7 @@ const STORAGE_KEYS = {
   TRADING_ACCOUNT: 'life_os_trading_account_v6',
   TRADING_JOURNAL: 'life_os_trading_journal_v6',
   TRADING_DRAWINGS: 'life_os_trading_drawings_v6',
+  TRADING_ALERTS: 'life_os_trading_alerts_v1',
   AI_CHAT_HISTORY: 'life_os_ai_chat_history_v7',
   AI_SETTINGS: 'life_os_ai_settings_v7',
   AI_SCHEDULE_AUDITS: 'life_os_ai_schedule_audits_v7',
@@ -2131,6 +2133,56 @@ export const Storage = {
     } catch (err) {
       console.error('Failed to save chart drawings', err);
     }
+  },
+
+  getTradingAlerts(): TradingAlert[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.TRADING_ALERTS);
+      if (data) return JSON.parse(data);
+      return [];
+    } catch {
+      return [];
+    }
+  },
+
+  setTradingAlerts(alerts: TradingAlert[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TRADING_ALERTS, JSON.stringify(alerts));
+    } catch (err) {
+      console.error('Failed to save trading alerts', err);
+    }
+  },
+
+  addTradingAlert(alert: Omit<TradingAlert, 'id' | 'createdAt' | 'triggered'>): TradingAlert {
+    const alerts = this.getTradingAlerts();
+    const newAlert: TradingAlert = {
+      ...alert,
+      id: `alert-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      createdAt: Date.now(),
+      triggered: false,
+    };
+    const updated = [newAlert, ...alerts];
+    this.setTradingAlerts(updated);
+    return newAlert;
+  },
+
+  updateTradingAlert(id: string, updates: Partial<TradingAlert>): TradingAlert | null {
+    const alerts = this.getTradingAlerts();
+    let updatedAlert: TradingAlert | null = null;
+    const updated = alerts.map((a) => {
+      if (a.id === id) {
+        updatedAlert = { ...a, ...updates };
+        return updatedAlert;
+      }
+      return a;
+    });
+    this.setTradingAlerts(updated);
+    return updatedAlert;
+  },
+
+  deleteTradingAlert(id: string): void {
+    const alerts = this.getTradingAlerts();
+    this.setTradingAlerts(alerts.filter((a) => a.id !== id));
   },
 
   // -------------------------------------------------------------
