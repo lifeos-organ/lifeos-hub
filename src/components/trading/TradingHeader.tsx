@@ -361,7 +361,7 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
           }`}
         >
           <Activity className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
-          <span>Live Terminal</span>
+          <span>Trading Terminal</span>
         </button>
 
         <button

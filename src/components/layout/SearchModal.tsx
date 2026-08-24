@@ -74,7 +74,7 @@ export function SearchModal({ isOpen, onClose, onNavigate }: SearchModalProps) {
     { title: 'Legacy Vault', path: '/vault', category: 'Security', icon: ShieldCheck, keywords: ['cold storage', 'backup', 'export', 'credentials'] },
     { title: 'Learn Academy', path: '/learn', category: 'Knowledge', icon: GraduationCap, keywords: ['courses', 'certifications', 'lessons'] },
     { title: 'Language Matrix', path: '/languages', category: 'Knowledge', icon: Globe, keywords: ['spanish', 'japanese', 'vocab', 'srs', 'flashcards'] },
-    { title: 'Trading Terminal', path: '/trading', category: 'Finance', icon: TrendingUp, keywords: ['crypto', 'market', 'journal', 'chart', 'replay'] },
+    { title: 'Trading Dashboard', path: '/trading', category: 'Finance', icon: TrendingUp, keywords: ['terminal', 'trading', 'crypto', 'market', 'journal', 'chart', 'replay', 'backtest'] },
     { title: 'AI Strategist', path: '/ai', category: 'Intelligence', icon: Sparkles, keywords: ['coach', 'gemini', 'audit', 'briefing'] },
     { title: 'XP & Achievements', path: '/progress', category: 'Progression', icon: Award, keywords: ['badges', 'level', 'ranks', 'quests'] },
     { title: 'System Settings', path: '/settings', category: 'Preferences', icon: Settings, keywords: ['theme', 'export', 'profile', 'notifications'] },

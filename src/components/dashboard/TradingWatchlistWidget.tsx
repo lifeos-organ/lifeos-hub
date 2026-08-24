@@ -31,7 +31,7 @@ export function TradingWatchlistWidget({ watchlist, onNavigate }: TradingWatchli
           onClick={() => onNavigate('/trading')}
           className="text-xs font-semibold text-emerald-500 hover:text-emerald-400 flex items-center gap-1 transition-colors"
         >
-          <span>Terminal</span>
+          <span>Trading Dashboard</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -39,7 +39,7 @@ export function TradingWatchlistWidget({ watchlist, onNavigate }: TradingWatchli
       <div className="space-y-2.5">
         {watchlist.length === 0 ? (
           <div className="text-center py-6 text-neutral-400 text-xs">
-            No assets in watchlist. Add tickers in Trading Terminal!
+            No assets in watchlist. Add tickers in Trading Dashboard!
           </div>
         ) : (
           watchlist.slice(0, 4).map((item) => (
