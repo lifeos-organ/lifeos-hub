@@ -634,9 +634,39 @@ export interface AIInsightSummary {
 
 export type AssetCategory = 'Crypto' | 'Indices' | 'Commodities' | 'Forex';
 
-export type Timeframe = '1m' | '5m' | '15m' | '30m' | '1H' | '4H' | '1D' | '1W' | '1h' | '4h';
+export type Timeframe =
+  | '1s'
+  | '5s'
+  | '10s'
+  | '15s'
+  | '30s'
+  | '1m'
+  | '2m'
+  | '3m'
+  | '5m'
+  | '10m'
+  | '15m'
+  | '30m'
+  | '1H'
+  | '2H'
+  | '3H'
+  | '4H'
+  | '6H'
+  | '8H'
+  | '12H'
+  | '1D'
+  | '1W'
+  | '1M'
+  | '1h'
+  | '4h';
 
-export type ChartType = 'candlestick' | 'heikin_ashi' | 'line';
+export type ChartType =
+  | 'candlestick'
+  | 'ohlc_bars'
+  | 'line'
+  | 'area'
+  | 'baseline'
+  | 'heikin_ashi';
 
 export type DrawingToolType =
   | 'cursor'
@@ -646,10 +676,16 @@ export type DrawingToolType =
   | 'vertical_line'
   | 'parallel_channel'
   | 'fibonacci'
+  | 'fib_extension'
   | 'rectangle'
   | 'circle'
+  | 'triangle'
+  | 'arrow'
   | 'text'
   | 'price_range'
+  | 'date_range'
+  | 'order_block'
+  | 'fvg'
   | 'long_position'
   | 'short_position';
 

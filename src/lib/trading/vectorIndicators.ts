@@ -249,6 +249,218 @@ export function calculateVWAPVector(
   return result;
 }
 
+export function calculateWMAVector(values: Float64Array, period: number): Float64Array {
+  const len = values.length;
+  const result = new Float64Array(len);
+  result.fill(NaN);
+
+  if (len < period || period <= 0) return result;
+
+  const weightSum = (period * (period + 1)) / 2;
+
+  for (let i = period - 1; i < len; i++) {
+    let weightedSum = 0;
+    for (let j = 0; j < period; j++) {
+      weightedSum += values[i - period + 1 + j] * (j + 1);
+    }
+    result[i] = weightedSum / weightSum;
+  }
+
+  return result;
+}
+
+export interface StochasticVectorResult {
+  k: Float64Array;
+  d: Float64Array;
+}
+
+export function calculateStochasticVector(
+  highs: Float64Array,
+  lows: Float64Array,
+  closes: Float64Array,
+  kPeriod = 14,
+  dPeriod = 3
+): StochasticVectorResult {
+  const len = closes.length;
+  const k = new Float64Array(len);
+  const d = new Float64Array(len);
+  k.fill(NaN);
+  d.fill(NaN);
+
+  if (len < kPeriod) return { k, d };
+
+  for (let i = kPeriod - 1; i < len; i++) {
+    let highestHigh = -Infinity;
+    let lowestLow = Infinity;
+    for (let j = 0; j < kPeriod; j++) {
+      const h = highs[i - j];
+      const l = lows[i - j];
+      if (h > highestHigh) highestHigh = h;
+      if (l < lowestLow) lowestLow = l;
+    }
+    const range = highestHigh - lowestLow;
+    k[i] = range === 0 ? 50 : ((closes[i] - lowestLow) / range) * 100;
+  }
+
+  const dValues = calculateSMAVector(k, dPeriod);
+  d.set(dValues);
+
+  return { k, d };
+}
+
+export function calculateCCIVector(
+  highs: Float64Array,
+  lows: Float64Array,
+  closes: Float64Array,
+  period = 20
+): Float64Array {
+  const len = closes.length;
+  const result = new Float64Array(len);
+  result.fill(NaN);
+
+  if (len < period) return result;
+
+  const tp = new Float64Array(len);
+  for (let i = 0; i < len; i++) {
+    tp[i] = (highs[i] + lows[i] + closes[i]) / 3;
+  }
+
+  const smaTP = calculateSMAVector(tp, period);
+
+  for (let i = period - 1; i < len; i++) {
+    let meanDev = 0;
+    const mean = smaTP[i];
+    for (let j = 0; j < period; j++) {
+      meanDev += Math.abs(tp[i - j] - mean);
+    }
+    meanDev /= period;
+    result[i] = meanDev === 0 ? 0 : (tp[i] - mean) / (0.015 * meanDev);
+  }
+
+  return result;
+}
+
+export function calculateWilliamsRVector(
+  highs: Float64Array,
+  lows: Float64Array,
+  closes: Float64Array,
+  period = 14
+): Float64Array {
+  const len = closes.length;
+  const result = new Float64Array(len);
+  result.fill(NaN);
+
+  if (len < period) return result;
+
+  for (let i = period - 1; i < len; i++) {
+    let highestHigh = -Infinity;
+    let lowestLow = Infinity;
+    for (let j = 0; j < period; j++) {
+      const h = highs[i - j];
+      const l = lows[i - j];
+      if (h > highestHigh) highestHigh = h;
+      if (l < lowestLow) lowestLow = l;
+    }
+    const range = highestHigh - lowestLow;
+    result[i] = range === 0 ? -50 : ((highestHigh - closes[i]) / range) * -100;
+  }
+
+  return result;
+}
+
+export function calculateROCandMomentumVector(
+  closes: Float64Array,
+  period = 12
+): { roc: Float64Array; momentum: Float64Array } {
+  const len = closes.length;
+  const roc = new Float64Array(len);
+  const momentum = new Float64Array(len);
+  roc.fill(NaN);
+  momentum.fill(NaN);
+
+  if (len <= period) return { roc, momentum };
+
+  for (let i = period; i < len; i++) {
+    const prev = closes[i - period];
+    const curr = closes[i];
+    momentum[i] = curr - prev;
+    roc[i] = prev === 0 ? 0 : ((curr - prev) / prev) * 100;
+  }
+
+  return { roc, momentum };
+}
+
+export function calculateOBVVector(closes: Float64Array, volumes: Float64Array): Float64Array {
+  const len = closes.length;
+  const obv = new Float64Array(len);
+  if (len === 0) return obv;
+
+  obv[0] = volumes[0];
+  for (let i = 1; i < len; i++) {
+    if (closes[i] > closes[i - 1]) {
+      obv[i] = obv[i - 1] + volumes[i];
+    } else if (closes[i] < closes[i - 1]) {
+      obv[i] = obv[i - 1] - volumes[i];
+    } else {
+      obv[i] = obv[i - 1];
+    }
+  }
+
+  return obv;
+}
+
+export function calculateADXVector(
+  highs: Float64Array,
+  lows: Float64Array,
+  closes: Float64Array,
+  period = 14
+): Float64Array {
+  const len = closes.length;
+  const adx = new Float64Array(len);
+  adx.fill(NaN);
+
+  if (len < period * 2) return adx;
+
+  const plusDM = new Float64Array(len);
+  const minusDM = new Float64Array(len);
+  const tr = new Float64Array(len);
+
+  for (let i = 1; i < len; i++) {
+    const upMove = highs[i] - highs[i - 1];
+    const downMove = lows[i - 1] - lows[i];
+
+    plusDM[i] = upMove > downMove && upMove > 0 ? upMove : 0;
+    minusDM[i] = downMove > upMove && downMove > 0 ? downMove : 0;
+
+    const hl = highs[i] - lows[i];
+    const hc = Math.abs(highs[i] - closes[i - 1]);
+    const lc = Math.abs(lows[i] - closes[i - 1]);
+    tr[i] = Math.max(hl, hc, lc);
+  }
+
+  const smoothedPlusDM = calculateEMAVector(plusDM, period);
+  const smoothedMinusDM = calculateEMAVector(minusDM, period);
+  const smoothedTR = calculateEMAVector(tr, period);
+
+  const dx = new Float64Array(len);
+  dx.fill(NaN);
+
+  for (let i = period; i < len; i++) {
+    const trVal = smoothedTR[i];
+    if (trVal > 0) {
+      const plusDI = (smoothedPlusDM[i] / trVal) * 100;
+      const minusDI = (smoothedMinusDM[i] / trVal) * 100;
+      const diSum = plusDI + minusDI;
+      dx[i] = diSum > 0 ? (Math.abs(plusDI - minusDI) / diSum) * 100 : 0;
+    }
+  }
+
+  const adxSmooth = calculateEMAVector(dx, period);
+  adx.set(adxSmooth);
+
+  return adx;
+}
+
 /**
  * High-Speed Incremental Indicator Engine for Live Streaming Feeds
  * Computes newly arrived tick/bar updates in O(1) time without recalculating 10 years of historical data.

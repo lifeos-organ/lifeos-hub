@@ -602,7 +602,7 @@ export const TradingChartCanvas: React.FC<TradingChartCanvasProps> = ({
       });
     }
 
-    // 6. Candlesticks / Line Chart
+    // 6. Candlesticks / OHLC Bars / Line / Area / Baseline Chart
     const candleWidth = (width - 70) / visibleCount;
     const bodyWidth = Math.max(2, candleWidth * 0.72);
 
@@ -617,6 +617,101 @@ export const TradingChartCanvas: React.FC<TradingChartCanvasProps> = ({
         else ctx.lineTo(x, y);
       });
       ctx.stroke();
+    } else if (chartType === 'area') {
+      if (visibleCandles.length > 0) {
+        ctx.beginPath();
+        const startX = getXCoord(0, width);
+        const startY = getYCoord(visibleCandles[0].close, mainHeight);
+        ctx.moveTo(startX, startY);
+
+        visibleCandles.forEach((c, idx) => {
+          const x = getXCoord(idx, width);
+          const y = getYCoord(c.close, mainHeight);
+          ctx.lineTo(x, y);
+        });
+
+        const lastX = getXCoord(visibleCandles.length - 1, width);
+        ctx.lineTo(lastX, mainHeight);
+        ctx.lineTo(startX, mainHeight);
+        ctx.closePath();
+
+        const grad = ctx.createLinearGradient(0, 0, 0, mainHeight);
+        grad.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+        grad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Stroke top edge
+        ctx.beginPath();
+        visibleCandles.forEach((c, idx) => {
+          const x = getXCoord(idx, width);
+          const y = getYCoord(c.close, mainHeight);
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    } else if (chartType === 'baseline') {
+      if (visibleCandles.length > 0) {
+        const baselinePrice = (minPrice + maxPrice) / 2;
+        const baselineY = getYCoord(baselinePrice, mainHeight);
+
+        // Baseline reference line
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(0, baselineY);
+        ctx.lineTo(width - 70, baselineY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Line
+        ctx.beginPath();
+        visibleCandles.forEach((c, idx) => {
+          const x = getXCoord(idx, width);
+          const y = getYCoord(c.close, mainHeight);
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+      }
+    } else if (chartType === 'ohlc_bars') {
+      visibleCandles.forEach((c, idx) => {
+        const x = getXCoord(idx, width);
+        const openY = getYCoord(c.open, mainHeight);
+        const closeY = getYCoord(c.close, mainHeight);
+        const highY = getYCoord(c.high, mainHeight);
+        const lowY = getYCoord(c.low, mainHeight);
+
+        const isBull = c.close >= c.open;
+        const color = isBull ? '#10b981' : '#f43f5e';
+        const tickW = Math.max(2, bodyWidth / 2);
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+
+        // Vertical Bar (High to Low)
+        ctx.beginPath();
+        ctx.moveTo(x, highY);
+        ctx.lineTo(x, lowY);
+        ctx.stroke();
+
+        // Left tick (Open)
+        ctx.beginPath();
+        ctx.moveTo(x - tickW, openY);
+        ctx.lineTo(x, openY);
+        ctx.stroke();
+
+        // Right tick (Close)
+        ctx.beginPath();
+        ctx.moveTo(x, closeY);
+        ctx.lineTo(x + tickW, closeY);
+        ctx.stroke();
+      });
     } else {
       // Candlesticks (or Heikin-Ashi)
       visibleCandles.forEach((c, idx) => {
