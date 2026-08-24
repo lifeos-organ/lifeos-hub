@@ -88,7 +88,7 @@ function AppContent() {
       case '/trading':
       case '/trading/replay':
       case '/trading/journal':
-        return <TradingMainView />;
+        return <TradingMainView onNavigate={navigate} />;
 
       case '/ai':
         return <AICoachMainView />;

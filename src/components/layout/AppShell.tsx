@@ -20,6 +20,24 @@ export function AppShell({ currentPath, onNavigate, children }: AppShellProps) {
 
   const isTradingView = currentPath.startsWith('/trading');
 
+  if (isTradingView) {
+    return (
+      <div className="h-screen w-screen min-h-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden antialiased selection:bg-white selection:text-neutral-950">
+        <PWAStatusBanner />
+        <main className="flex-1 w-full h-full flex flex-col min-h-0 overflow-hidden">
+          {children}
+        </main>
+        <SearchModal
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          onNavigate={onNavigate}
+        />
+        <PWAInstallModal />
+        <ToastContainer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-neutral-100/60 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col antialiased selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900">
       {/* PWA Offline / Update Banner */}

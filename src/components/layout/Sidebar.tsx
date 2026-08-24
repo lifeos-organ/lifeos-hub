@@ -76,7 +76,7 @@ export function Sidebar({ currentPath, onNavigate }: SidebarProps) {
       items: [
         { label: 'Learn', path: '/learn', icon: GraduationCap },
         { label: 'Languages', path: '/languages', icon: Globe },
-        { label: 'Trading', path: '/trading', icon: TrendingUp },
+        { label: 'Trading Terminal', path: '/trading', icon: TrendingUp },
       ],
     },
     {

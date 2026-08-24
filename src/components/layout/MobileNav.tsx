@@ -78,7 +78,7 @@ export function MobileNav({
       items: [
         { label: 'Learn', path: '/learn' as RoutePath, icon: GraduationCap },
         { label: 'Languages', path: '/languages' as RoutePath, icon: Globe },
-        { label: 'Trading', path: '/trading' as RoutePath, icon: TrendingUp },
+        { label: 'Trading Terminal', path: '/trading' as RoutePath, icon: TrendingUp },
       ],
     },
     {

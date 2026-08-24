@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MarketSymbol, MarketStatus, BrokerAccount } from '../../types';
+import { MarketSymbol, MarketStatus, BrokerAccount, RoutePath } from '../../types';
 import {
   TrendingUp,
   TrendingDown,
@@ -18,6 +18,7 @@ import {
   Keyboard,
   Filter,
   Globe,
+  ArrowLeft,
 } from 'lucide-react';
 
 export type TradingTabType = 'terminal' | 'screener' | 'overview' | 'replay' | 'backtester' | 'journal' | 'calculator' | 'ai_coach' | 'performance';
@@ -36,6 +37,7 @@ interface TradingHeaderProps {
   onOpenAlerts?: () => void;
   activeAlertsCount?: number;
   onOpenShortcuts?: () => void;
+  onNavigate?: (path: RoutePath) => void;
 }
 
 export const TradingHeader: React.FC<TradingHeaderProps> = ({
@@ -51,6 +53,7 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
   onOpenAlerts,
   activeAlertsCount = 0,
   onOpenShortcuts,
+  onNavigate,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,11 +79,27 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
   };
 
   return (
-    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-neutral-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-4">
+    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-neutral-200/80 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl space-y-3 shrink-0">
       {/* Top Row: Symbol Selector, Live Price Stats, Market Status, Account Equity */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-        {/* Left: Active Symbol Selector Dropdown */}
-        <div className="flex items-center gap-3 relative">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+        {/* Left: LIFE OS Brand Pill & Active Symbol Selector Dropdown */}
+        <div className="flex items-center gap-2.5 relative flex-wrap">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('/dashboard')}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-slate-950 dark:hover:bg-slate-800/80 border border-neutral-200 dark:border-slate-800 text-neutral-900 dark:text-white transition-all cursor-pointer group shadow-2xs shrink-0"
+              title="Return to LIFE OS Hub"
+            >
+              <div className="w-6 h-6 rounded-md bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                Ω
+              </div>
+              <div className="text-left">
+                <span className="font-extrabold text-xs tracking-tight font-mono block leading-none">LIFE OS</span>
+                <span className="text-[9px] text-neutral-400 font-mono leading-none">Hub</span>
+              </div>
+            </button>
+          )}
+
           <div className="relative">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}

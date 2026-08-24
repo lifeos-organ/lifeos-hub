@@ -16,8 +16,9 @@ import {
   MarketStatus,
   Quote,
   TradingAlert,
+  RoutePath,
 } from '../../types';
-import { INITIAL_SYMBOLS } from '../../lib/tradingData';
+import { INITIAL_SYMBOLS, generateCandlesticks } from '../../lib/tradingData';
 import { Storage } from '../../lib/storage';
 import { MarketDataManager } from '../../lib/marketData/MarketDataManager';
 import { BrokerManager } from '../../lib/broker/BrokerManager';
@@ -41,14 +42,26 @@ import { MarketOverviewView } from './MarketOverviewView';
 import { MultiChartLayout } from './MultiChartLayout';
 import { Sparkles, LayoutGrid, Square, BellRing } from 'lucide-react';
 
-export const TradingMainView: React.FC = () => {
-  // 1. Initial State
+interface TradingMainViewProps {
+  onNavigate?: (path: RoutePath) => void;
+}
+
+export const TradingMainView: React.FC<TradingMainViewProps> = ({ onNavigate }) => {
+  // 1. Initial State - Instant XAUUSD at 1m with pre-seeded/cached candles
   const [symbols, setSymbols] = useState<MarketSymbol[]>(() => Storage.getTradingSymbols());
-  const [currentSymbol, setCurrentSymbol] = useState<MarketSymbol>(() => symbols[0] || INITIAL_SYMBOLS[0]);
+  const [currentSymbol, setCurrentSymbol] = useState<MarketSymbol>(() => {
+    const loadedSymbols = Storage.getTradingSymbols();
+    const xau =
+      loadedSymbols.find((s) => s.symbol.replace(/[/_]/g, '') === 'XAUUSD') ||
+      INITIAL_SYMBOLS.find((s) => s.symbol.replace(/[/_]/g, '') === 'XAUUSD') ||
+      loadedSymbols[0] ||
+      INITIAL_SYMBOLS[0];
+    return xau;
+  });
   const [activeTab, setActiveTab] = useState<TradingTabType>('terminal');
 
-  // Chart configuration
-  const [timeframe, setTimeframe] = useState<Timeframe>('15m');
+  // Chart configuration: default to 1m candlestick
+  const [timeframe, setTimeframe] = useState<Timeframe>('1m');
   const [chartType, setChartType] = useState<ChartType>('candlestick');
   const [indicators, setIndicators] = useState<IndicatorConfig>({
     ema9: true,
@@ -84,8 +97,16 @@ export const TradingMainView: React.FC = () => {
   const [drawings, setDrawings] = useState<ChartDrawing[]>(() => Storage.getChartDrawings(currentSymbol.symbol));
   const [isMagnetEnabled, setIsMagnetEnabled] = useState(true);
 
-  // Candlestick dataset
-  const [candles, setCandles] = useState<CandleStick[]>([]);
+  // Candlestick dataset - synchronous instant seed so chart renders on frame 0
+  const [candles, setCandles] = useState<CandleStick[]>(() => {
+    const loadedSymbols = Storage.getTradingSymbols();
+    const xau =
+      loadedSymbols.find((s) => s.symbol.replace(/[/_]/g, '') === 'XAUUSD') ||
+      INITIAL_SYMBOLS.find((s) => s.symbol.replace(/[/_]/g, '') === 'XAUUSD') ||
+      loadedSymbols[0] ||
+      INITIAL_SYMBOLS[0];
+    return generateCandlesticks(xau, '1m', 140);
+  });
   const [isLoadingBars, setIsLoadingBars] = useState(false);
 
   // Replay Engine State
@@ -401,7 +422,7 @@ export const TradingMainView: React.FC = () => {
   }));
 
   return (
-    <div className="w-full flex-1 flex flex-col min-h-0 space-y-2.5 pb-6">
+    <div className="w-full h-full flex-1 flex flex-col min-h-0 space-y-2 p-1.5 sm:p-2.5 overflow-y-auto">
       {/* Toast notification banner */}
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 px-4 py-2.5 rounded-2xl bg-emerald-500 text-slate-950 text-xs font-mono font-bold shadow-2xl flex items-center gap-2 animate-bounce">
@@ -427,6 +448,7 @@ export const TradingMainView: React.FC = () => {
         onOpenAlerts={() => setIsAlertsModalOpen(true)}
         activeAlertsCount={alerts.filter((a) => a.active && !a.triggered).length}
         onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
+        onNavigate={onNavigate}
       />
 
       {/* Main Content Body */}
